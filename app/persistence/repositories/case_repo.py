@@ -1,22 +1,19 @@
 import sqlite3
-from uuid import UUID
 from datetime import datetime
-from app.domain.measure_case import MeasureCase, MeasureCaseStatus, MeasureCaseId
+from uuid import UUID
+
+from app.domain.case import Case, CaseId, CaseStatus
 
 
-class MeasureCaseRepository:
+class CaseRepository:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    # ---------------------------------------------------------
-    # CREATE
-    # ---------------------------------------------------------
-
-    def create(self, case: MeasureCase) -> None:
+    def create(self, case: Case) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            INSERT INTO measure_cases (
+            INSERT INTO cases (
                 id,
                 member_id,
                 measure_type,
@@ -43,59 +40,41 @@ class MeasureCaseRepository:
         )
         self.conn.commit()
 
-    # ---------------------------------------------------------
-    # EXISTS ACTIVE
-    # ---------------------------------------------------------
-
     def exists_active_case(self, member_id: str, measure_type: str, year: int) -> bool:
+        normalized_measure_type = measure_type.strip().upper()
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT 1 FROM measure_cases
+            SELECT 1 FROM cases
             WHERE member_id = ?
               AND measure_type = ?
               AND year = ?
               AND status != 'archived'
             LIMIT 1
             """,
-            (member_id, measure_type, year),
+            (member_id, normalized_measure_type, year),
         )
         return cursor.fetchone() is not None
 
-    # ---------------------------------------------------------
-    # LIST
-    # ---------------------------------------------------------
-
-    def list_all(self):
+    def list_all(self) -> list[Case]:
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM measure_cases")
+        cursor.execute("SELECT * FROM cases")
         rows = cursor.fetchall()
         return [self._row_to_domain(row) for row in rows]
 
-    # ---------------------------------------------------------
-    # GET BY ID
-    # ---------------------------------------------------------
-
-    def get_by_id(self, case_id: UUID):
+    def get_by_id(self, case_id: UUID) -> Case | None:
         cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT * FROM measure_cases WHERE id = ?",
-            (str(case_id),),
-        )
+        cursor.execute("SELECT * FROM cases WHERE id = ?", (str(case_id),))
         row = cursor.fetchone()
         if not row:
             return None
         return self._row_to_domain(row)
 
-    # ---------------------------------------------------------
-    # UPDATE
-    # ---------------------------------------------------------
-
-    def update(self, case: MeasureCase) -> None:
+    def update(self, case: Case) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            UPDATE measure_cases
+            UPDATE cases
             SET status = ?,
                 updated_at = ?
             WHERE id = ?
@@ -108,19 +87,15 @@ class MeasureCaseRepository:
         )
         self.conn.commit()
 
-    # ---------------------------------------------------------
-    # INTERNAL MAPPER
-    # ---------------------------------------------------------
-
-    def _row_to_domain(self, row) -> MeasureCase:
-        return MeasureCase(
-            id=MeasureCaseId(UUID(row["id"])),
+    def _row_to_domain(self, row: sqlite3.Row) -> Case:
+        return Case(
+            id=CaseId(UUID(row["id"])),
             member_id=row["member_id"],
             measure_type=row["measure_type"],
             year=row["year"],
             current_pdc=row["current_pdc"],
             target_pdc=row["target_pdc"],
-            status=MeasureCaseStatus(row["status"]),
+            status=CaseStatus(row["status"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )

@@ -23,9 +23,9 @@ What exists today:
 - a FastAPI app in [app/main.py](/Applications/Q4-Rescue/app/main.py)
 - a SQLite database in [q4_rescue.sqlite3](/Applications/Q4-Rescue/q4_rescue.sqlite3)
 - a database schema in [app/persistence/schema.sql](/Applications/Q4-Rescue/app/persistence/schema.sql)
-- a domain model for `MeasureCase` in [app/domain/measure_case.py](/Applications/Q4-Rescue/app/domain/measure_case.py)
+- a domain model for `Case` in [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
 - repository classes for persistence in [app/persistence/repositories](/Applications/Q4-Rescue/app/persistence/repositories)
-- API endpoints for case creation, retrieval, listing, status updates, and archiving in [app/api/routes/measure_case.py](/Applications/Q4-Rescue/app/api/routes/measure_case.py)
+- API endpoints for case creation, retrieval, listing, status updates, and archiving in [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
 - idempotency support for safe repeated create requests
 
 What does not exist yet:
@@ -42,7 +42,7 @@ What does not exist yet:
 
 This project already follows a basic domain-driven design shape.
 
-In the current implementation, the central domain concept is a starter object called `MeasureCase`, which contains:
+In the current implementation, the central domain concept is a `Case`, which currently contains:
 
 - `member_id`
 - `measure_type`
@@ -61,11 +61,11 @@ Instead of treating the system as only database CRUD, the code models business r
 
 That is the clearest sign that the project was being structured around domain behavior rather than just API endpoints.
 
-In the active specification, `Case` has replaced `MeasureCase` as the aggregate root. The current code still reflects the earlier starter implementation.
+The current code now uses `Case` as the aggregate root, although the deeper `Measure` / `Medication` decomposition is still future work.
 
 ## Planned Domain Vocabulary
 
-The current codebase still implements a starter object called `MeasureCase`, but the active domain specification has moved to `Case` as the aggregate root and uses clearer business language.
+The current codebase now uses `Case` as the aggregate root, but the fuller `Measure` / `Medication` model is still being designed.
 
 The current agreed vocabulary is:
 
@@ -91,7 +91,7 @@ In plain English, the intended flow is:
 5. The system creates `Task` records to act on the case.
 6. Each completed or attempted contact is logged as a `ContactAttempt`.
 
-This planned vocabulary is more representative of the real business workflow than the current starter `MeasureCase` object.
+This planned vocabulary is more representative of the real business workflow than the current simplified single-measure case implementation.
 
 ## Case Lifecycle
 
@@ -152,8 +152,8 @@ It answers questions like:
 
 In this project:
 
-- [app/api/routes/measure_case.py](/Applications/Q4-Rescue/app/api/routes/measure_case.py)
-- [app/api/schemas/measure_case.py](/Applications/Q4-Rescue/app/api/schemas/measure_case.py)
+- [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
+- [app/api/schemas/case.py](/Applications/Q4-Rescue/app/api/schemas/case.py)
 
 Short version:
 `api/` is how the outside world talks to the app.
@@ -195,7 +195,7 @@ It answers questions like:
 
 In this project:
 
-- [app/domain/measure_case.py](/Applications/Q4-Rescue/app/domain/measure_case.py)
+- [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
 - [app/domain/errors.py](/Applications/Q4-Rescue/app/domain/errors.py)
 
 Short version:
@@ -217,7 +217,7 @@ In this project:
 
 - [app/persistence/db.py](/Applications/Q4-Rescue/app/persistence/db.py)
 - [app/persistence/schema.sql](/Applications/Q4-Rescue/app/persistence/schema.sql)
-- [app/persistence/repositories/measure_case_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/measure_case_repo.py)
+- [app/persistence/repositories/case_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/case_repo.py)
 - [app/persistence/repositories/idempotency_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/idempotency_repo.py)
 
 Short version:
@@ -368,7 +368,7 @@ The current API supports:
 
 - [app/main.py](/Applications/Q4-Rescue/app/main.py)
   FastAPI entrypoint and startup DB initialization.
-- [app/domain/measure_case.py](/Applications/Q4-Rescue/app/domain/measure_case.py)
+- [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
   Core domain entity and transition logic.
 - [app/domain/errors.py](/Applications/Q4-Rescue/app/domain/errors.py)
   Domain-level exception types.
@@ -376,11 +376,11 @@ The current API supports:
   SQLite schema for cases and idempotency keys.
 - [app/persistence/db.py](/Applications/Q4-Rescue/app/persistence/db.py)
   Database connection and schema initialization.
-- [app/persistence/repositories/measure_case_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/measure_case_repo.py)
+- [app/persistence/repositories/case_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/case_repo.py)
   Persistence logic for measure cases.
 - [app/persistence/repositories/idempotency_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/idempotency_repo.py)
   Persistence logic for idempotent create requests.
-- [app/api/routes/measure_case.py](/Applications/Q4-Rescue/app/api/routes/measure_case.py)
+- [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
   Current case-management API.
 
 ## What Was Likely Planned Next

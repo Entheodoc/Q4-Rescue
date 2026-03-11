@@ -34,7 +34,7 @@ This repository serves as the single source of truth for platform architecture.
 
 Legacy note:
 
-The repository still contains legacy implementation and archived documentation that use the older `MeasureCase` name. Those references describe the starter system, not the current target domain model.
+The repository still contains archived documentation that uses the older `MeasureCase` name. Those references describe the starter system, not the current target domain model.
 
 ---
 

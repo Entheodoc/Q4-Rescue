@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
 
-class MeasureCaseCreate(BaseModel):
+class CaseCreate(BaseModel):
     member_id: str
     measure_type: str
     year: int
-    current_pdc: float | None = None
+    current_pdc: float

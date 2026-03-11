@@ -3,10 +3,10 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- Measure Cases
+-- Cases
 -- ------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS measure_cases (
+CREATE TABLE IF NOT EXISTS cases (
   id TEXT PRIMARY KEY,
   member_id TEXT NOT NULL,
   measure_type TEXT NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS measure_cases (
 );
 
 -- Optional but recommended index for fast lookups
-CREATE INDEX IF NOT EXISTS idx_measure_cases_member_measure_year
-ON measure_cases (member_id, measure_type, year);
+CREATE INDEX IF NOT EXISTS idx_cases_member_measure_year
+ON cases (member_id, measure_type, year);
 
 -- ------------------------------------------------------------
 -- Idempotency Keys
