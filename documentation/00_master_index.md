@@ -3,8 +3,8 @@
 ## Metadata
 Document ID: PRD-MASTER-001
 Status: Active
-Version: 1.0.0
-Last Updated: 2026-03-01
+Version: 2.0.0
+Last Updated: 2026-03-11
 Owner: José Palomino
 Layer: Product
 System Version Alignment: 1.0.0
@@ -15,15 +15,26 @@ System Version Alignment: 1.0.0
 
 This repository defines the authoritative specification for the Medication Adherence SaaS Platform.
 
-The platform is built around a MeasureCase-centered, episode-based domain model.
+The platform is built around a rescue operations domain model centered on:
 
-Each MeasureCase represents a single eligibility episode for a specific Member and Measure combination.
+- Member
+- Referral
+- Case
+- Measure
+- Medication
+- Barrier
+- Task
+- ContactAttempt
 
-MeasureCases are created only when eligibility criteria are met and are permanently archived when eligibility ends.
+In the active model, a Referral starts intake work, a Case becomes the operational rescue record for one Member, and downstream work is organized through Measures, Medications, Barriers, Tasks, and ContactAttempts.
 
 The system supports event-driven automation, voice-agent integrations, deterministic state transitions, and scalable dashboard projections.
 
 This repository serves as the single source of truth for platform architecture.
+
+Legacy note:
+
+The repository still contains legacy implementation and archived documentation that use the older `MeasureCase` name. Those references describe the starter system, not the current target domain model.
 
 ---
 
@@ -31,32 +42,32 @@ This repository serves as the single source of truth for platform architecture.
 
 ### 1. Eligibility-Driven Creation
 
-A MeasureCase is created only when a Member meets eligibility criteria for a specific Measure.
+A Referral is received for a Member and intake determines whether rescue work should be opened.
 
-No MeasureCase exists without eligibility.
+If rescue work is needed, one Case is created from that Referral.
 
 ---
 
 ### 2. Episode-Based Lifecycle
 
-Each MeasureCase represents one distinct eligibility episode.
+Each Case represents one distinct rescue episode for one Member.
 
-If eligibility ends:
+If work is completed or terminated:
 
-- The MeasureCase transitions to `Closed_Ineligible`
-- The MeasureCase then transitions to `Archived`
+- The Case transitions to `closed`
+- The Case may later transition to `archived`
 - Archived cases become historical and immutable
 
 ---
 
 ### 3. Re-Eligibility
 
-If a Member becomes eligible again for the same Measure:
+If a Member is referred again later:
 
-- A new MeasureCase is created
-- A new CaseID is generated
+- A new Referral is created
+- A new Case is created
 - The prior archived case remains unchanged
-- Episode continuity may be linked via reference IDs
+- Historical continuity is preserved through the shared Member
 
 Archived cases are never reactivated.
 
@@ -76,14 +87,16 @@ Archived cases are never reactivated.
 
 ### Core Design Principles
 
-1. MeasureCase is the aggregate root
-2. Each Member may have multiple MeasureCases (one per eligible measure)
-3. Each MeasureCase represents one eligibility episode
-4. Domain defines state and invariants
-5. Rules govern valid state transitions
-6. Automation reacts to domain events
-7. Dashboards project domain state
-8. Documents are versioned and governed
+1. Member is the persistent person identity across time
+2. Each Referral creates exactly one Case
+3. Case is the aggregate root for rescue operations
+4. Case governs Measures, Barriers, and Tasks within its boundary
+5. ContactAttempt is communication-scoped and may relate to multiple Tasks
+6. Domain defines state and invariants
+7. Rules govern valid state transitions
+8. Automation reacts to domain events
+9. Dashboards project domain state
+10. Documents are versioned and governed
 
 ---
 
@@ -99,15 +112,20 @@ Defines product strategy, positioning, and roadmap.
 
 Defines core entities and aggregate roots.
 
-Aggregate Root:
-- measure_case.md
-
-Supporting Entities:
+Working entity specifications:
+- case.md
+- barrier.md
+- task.md
 - member.md
+- referral.md
 - measure.md
 - contact_attempt.md
+- task_contact_attempt.md
 - intervention.md
 - escalation.md
+
+Archived legacy specifications:
+- ../99_Archive/measure_case.md
 
 ---
 
@@ -117,6 +135,7 @@ Defines orchestration logic built on top of domain entities.
 
 - workflow_overview.md
 - intake_workflow.md
+- rescue_workflow_overview.md
 - contact_workflow.md
 - assessment_workflow.md
 - intervention_workflow.md
@@ -168,7 +187,7 @@ Defines projection and visualization layer.
 - kpi_definitions.md
 - dashboard_specifications.md
 
-Dashboards reflect current and historical MeasureCase states.
+Dashboards reflect current and historical rescue operations state.
 
 ---
 

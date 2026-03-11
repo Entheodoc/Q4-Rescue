@@ -42,7 +42,7 @@ What does not exist yet:
 
 This project already follows a basic domain-driven design shape.
 
-The central domain concept is a `MeasureCase`, which contains:
+In the current implementation, the central domain concept is a starter object called `MeasureCase`, which contains:
 
 - `member_id`
 - `measure_type`
@@ -61,9 +61,11 @@ Instead of treating the system as only database CRUD, the code models business r
 
 That is the clearest sign that the project was being structured around domain behavior rather than just API endpoints.
 
+In the active specification, `Case` has replaced `MeasureCase` as the aggregate root. The current code still reflects the earlier starter implementation.
+
 ## Planned Domain Vocabulary
 
-The current codebase still implements a starter object called `MeasureCase`, but the intended next version of the domain model should use clearer business language.
+The current codebase still implements a starter object called `MeasureCase`, but the active domain specification has moved to `Case` as the aggregate root and uses clearer business language.
 
 The current agreed vocabulary is:
 
@@ -83,7 +85,7 @@ The current agreed vocabulary is:
 In plain English, the intended flow is:
 
 1. A `Referral` arrives.
-2. The system creates or updates a `Case`.
+2. The system creates one `Case` from that `Referral`.
 3. The `Case` contains one or more `Measure` records.
 4. Each `Measure` contains one or more `Medication` records.
 5. The system creates `Task` records to act on the case.

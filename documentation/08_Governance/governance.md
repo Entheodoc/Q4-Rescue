@@ -4,8 +4,8 @@
 
 Document ID: GOV-GOVERNANCE-001
 Status: Active
-Version: 1.0.0
-Last Updated: 2026-03-01
+Version: 2.0.0
+Last Updated: 2026-03-11
 Owner: José Palomino
 Layer: Governance
 Parent Document: PRD-MASTER-001
@@ -257,7 +257,7 @@ Rules may define allowed transitions but may not redefine entities.
 
 Automation may emit events but may not override state transition rules.
 
-Archived MeasureCases are immutable and must never be reactivated.
+Archived domain records defined as terminal by the active domain model are immutable and must never be reactivated.
 
 ---
 
@@ -278,7 +278,6 @@ When a document is replaced or deprecated:
 - Update its Status to Archived
 - Do not modify archived documents
 
-Archived MeasureCases in domain modeling are immutable.
 Archived documentation files are also immutable.
 
 ---
@@ -287,9 +286,10 @@ Archived documentation files are also immutable.
 
 The following must always remain true:
 
-- MeasureCase is the aggregate root.
-- Eligibility creates MeasureCases.
-- Each MeasureCase represents one eligibility episode.
+- Case is the aggregate root for rescue operations.
+- Each Referral creates exactly one Case.
+- Member is the persistent person identity across time.
+- ContactAttempt is communication-scoped, not case-scoped.
 - Archived cases are never reactivated.
 - Domain defines state.
 - Rules define transitions.
@@ -368,8 +368,14 @@ All file names must:
 
 | Document ID | Folder | Valid File Name |
 |-------------|--------|----------------|
-| DOM-MEASURECASE-001 | 02_Domain | measure_case.md |
+| DOM-MEASURECASE-001 | 99_Archive | measure_case.md |
+| DOM-CASE-001 | 02_Domain | case.md |
 | DOM-MEMBER-001 | 02_Domain | member.md |
+| DOM-REFERRAL-001 | 02_Domain | referral.md |
+| DOM-BARRIER-001 | 02_Domain | barrier.md |
+| DOM-TASK-001 | 02_Domain | task.md |
+| DOM-CONTACTATTEMPT-001 | 02_Domain | contact_attempt.md |
+| DOM-TASKCONTACTATTEMPT-001 | 02_Domain | task_contact_attempt.md |
 | WF-INTAKE-001 | 03_Workflows | intake_workflow.md |
 | RULE-ELIGIBILITY-001 | 04_Rules | eligibility_rules.md |
 | DATA-DICTIONARY-001 | 05_Data_Model | data_dictionary.md |
@@ -468,7 +474,8 @@ For Domain documents:
 
 | Document ID | File Name | Valid H1 Title |
 |-------------|-----------|----------------|
-| DOM-MEASURECASE-001 | measure_case.md | # MeasureCase Aggregate Root |
+| DOM-MEASURECASE-001 | measure_case.md | # MeasureCase Aggregate Root (Archived) |
+| DOM-CASE-001 | case.md | # Case |
 | DOM-MEMBER-001 | member.md | # Member Entity |
 | DOM-CONTACTATTEMPT-001 | contact_attempt.md | # ContactAttempt Entity |
 
@@ -660,11 +667,11 @@ If the change touches Domain:
 
 Verify:
 
-- MeasureCase remains the aggregate root.
-- Each MeasureCase represents exactly one eligibility episode.
+- Case remains the aggregate root unless Governance is intentionally revised again.
+- Each Referral still creates exactly one Case.
 - Archived cases remain immutable.
-- Re-eligibility creates a new MeasureCase.
-- Subordinate entities remain inside the aggregate boundary.
+- ContactAttempt remains outside the Case aggregate and links through TaskContactAttempt.
+- Subordinate entities remain inside the intended aggregate boundary.
 
 Any violation of these principles constitutes a MAJOR architectural revision.
 
@@ -719,7 +726,7 @@ Ask:
 
 If this system operated at scale with:
 
-- Millions of MeasureCases
+- Millions of Cases
 - Multiple developers
 - External integrations
 - Automation pipelines
@@ -747,4 +754,5 @@ The change must be rejected or Governance updated before proceeding.
 
 # Version History
 
+Version 2.0.0 – 2026-03-11 – Governance updated to make Case the active aggregate root and retire MeasureCase as the active domain center.
 Version 1.0.0 – 2026-03-01 – Initial governance standard established

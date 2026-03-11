@@ -1,11 +1,11 @@
-# MeasureCase Intake Workflow
+# Intake Workflow
 
 ## Metadata
 
 Document ID: WF-INTAKE-001
 Status: Active
-Version: 1.0.0
-Last Updated: 2026-03-01
+Version: 2.0.0
+Last Updated: 2026-03-11
 Owner: José Palomino
 Layer: Workflow
 Parent Document: PRD-MASTER-001
@@ -14,13 +14,13 @@ Parent Document: PRD-MASTER-001
 
 # Purpose
 
-The Intake Workflow evaluates Member eligibility for CMS Star adherence measures and initializes MeasureCases for eligible Measure episodes.
+The Intake Workflow receives a Referral, validates intake data, determines whether rescue work should be opened, creates a Case for the Member, and initializes the starting Measure and Medication work context.
 
 This workflow orchestrates domain interactions but does not define business rules, lifecycle rules, or state transition logic.
 
 Eligibility logic is defined in `04_Rules/Eligibility_Rules.md`.
 
-MeasureCase lifecycle behavior is defined in `02_Domain/MeasureCase.md`.
+Case lifecycle behavior is defined in `02_Domain/case.md`.
 
 ---
 
@@ -39,7 +39,7 @@ MeasureCase lifecycle behavior is defined in `02_Domain/MeasureCase.md`.
 1. Validate Member enrollment and program participation.
 2. Evaluate eligibility for each supported Measure.
 3. Detect initial adherence risk signals.
-4. Create MeasureCases for eligible Measure episodes.
+4. Create one Case from the Referral when rescue work should be opened.
 5. Emit appropriate domain events.
 
 ---
@@ -54,7 +54,7 @@ MeasureCase lifecycle behavior is defined in `02_Domain/MeasureCase.md`.
 - Validate referral data completeness.
 
 If Member is not active:
-- No MeasureCase is created.
+- No Case is created.
 - Workflow terminates.
 
 ---
@@ -79,30 +79,31 @@ For each supported adherence Measure (e.g., DM, RASA, Statin):
 - Determine whether the Member qualifies for that Measure.
 
 If eligible:
-- Proceed to MeasureCase creation.
+- Proceed to Case creation and measure initialization.
 
 If not eligible:
-- No MeasureCase is created for that Measure.
+- No new rescue work is opened for that referral.
 
 ---
 
-## 4. MeasureCase Creation
+## 4. Case Creation
 
-For each eligible Measure:
+For a referral that should open rescue work:
 
-- Instantiate a new MeasureCase.
+- Instantiate a new Case.
+- Link the Case to exactly one Referral and one Member.
 - Assign a unique CaseID.
-- Associate MemberID and MeasureID.
-- Initialize lifecycle state to `New`.
+- Initialize lifecycle state to `open`.
+- Create the starting Measure and Medication records needed for the Case.
 
 Emit domain event:
-- `MeasureCaseCreated`
+- `CaseCreated`
 
 ---
 
 ## 5. Initial Risk Detection
 
-For newly created MeasureCases:
+For the newly created Case and its Measures:
 
 - Evaluate early adherence signals (e.g., declining PDC, GNR).
 - Flag at-risk indicators for downstream workflows.
@@ -112,30 +113,26 @@ Risk evaluation logic is governed by `Adherence_Rules.md`.
 
 ---
 
-## 6. Lifecycle Activation
+## 6. Initial Work Activation
 
-After initialization:
+After initialization, downstream Tasks may be created based on identified barriers, measures, and medications.
 
-- Transition MeasureCase from `New` to `Active`.
-- Emit domain event:
-  - `MeasureCaseActivated`
-
-State transition rules are governed by `State_Transition_Rules.md`.
+Task creation and follow-up sequencing are governed by workflow and rule documents rather than by a special intake-only activation state.
 
 ---
 
 # Outputs
 
-For each eligible Measure:
+For each referral that opens rescue work:
 
-- A new MeasureCase is created.
-- Lifecycle state is set to `Active`.
+- A new Case is created.
+- Initial Measure and Medication context is recorded.
 - Domain events are emitted.
-- MeasureCase becomes eligible for the Contact Workflow.
+- The Case becomes eligible for downstream task creation and contact workflows.
 
 For ineligible Members:
 
-- No MeasureCase is created.
+- No Case is created.
 - Workflow terminates without lifecycle changes.
 
 ---
@@ -167,7 +164,7 @@ Edge cases are handled through rule evaluation and event emission.
 
 # Dependencies
 
-- `02_Domain/MeasureCase.md`
+- `02_Domain/case.md`
 - `04_Rules/Eligibility_Rules.md`
 - `04_Rules/Adherence_Rules.md`
 - `04_Rules/State_Transition_Rules.md`
@@ -178,4 +175,5 @@ Edge cases are handled through rule evaluation and event emission.
 
 # Version History
 
+Version 2.0.0 – 2026-03-11 – Workflow revised to align intake around Referral and Case instead of MeasureCase.
 Version 1.0.0 – 2026-03-01 – Governance-compliant workflow aligned to MeasureCase episode-based architecture

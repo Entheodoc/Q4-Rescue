@@ -1,14 +1,24 @@
-# MeasureCase Aggregate Root
+# MeasureCase Aggregate Root (Archived)
 
 ## Metadata
 
 Document ID: DOM-MEASURECASE-001  
-Status: Active  
-Version: 1.1.0  
-Last Updated: 2026-03-01  
+Status: Archived  
+Version: 2.0.0  
+Last Updated: 2026-03-11  
 Owner: José Palomino  
 Layer: Domain  
 Parent Document: PRD-MASTER-001  
+
+---
+
+## Archive Note
+
+This document is archived.
+
+It describes the legacy `MeasureCase`-centered starter architecture that existed before the rescue operations model adopted `Case` as the aggregate root.
+
+It is preserved for historical reference only and is no longer the active domain specification.
 
 ---
 
