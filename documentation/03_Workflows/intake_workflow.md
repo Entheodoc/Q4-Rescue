@@ -62,9 +62,11 @@ If Member is not active:
 ## 2. Data Verification
 
 - Validate demographic information.
-- Confirm PCP information.
+- Confirm primary care provider or primary provider information when available.
 - Confirm pharmacy information.
 - Identify critical data discrepancies.
+
+If PCP information is captured, treat it as member-level context rather than medication-level provider data. A future member-to-provider relationship may model that explicitly if it becomes operationally important.
 
 If discrepancies are detected:
 - Emit appropriate escalation events as defined in `Escalation_Rules.md`.

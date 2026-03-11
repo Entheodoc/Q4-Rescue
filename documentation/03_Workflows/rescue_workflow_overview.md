@@ -109,6 +109,7 @@ flowchart TD
 - whether `Medication` needs external drug identifiers, strength, dosage form, or additional clinical display fields
 - whether current prescriber should be represented purely by chronology, an explicit flag, or both
 - whether `MedicationPharmacy` should store both detailed refill entries and convenience summary fields such as refill count
+- whether member-level PCP or primary-provider relationships should later be modeled through a dedicated `MemberProvider` relationship object
 - whether `Barrier` or `Task` later need optional direct references to `Measure` or `Medication` beyond current case ownership rules
 
 ---

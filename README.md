@@ -28,6 +28,7 @@ What exists today:
 - API endpoints for case creation, retrieval, listing, status updates, and archiving in [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
 - idempotency support for safe repeated create requests
 - end-to-end persistence for nested `Member`, `Referral`, `Measure`, `Medication`, `MedicationProvider`, and `MedicationPharmacy` data during case creation
+- detailed operational source material in [Medication Adherence Workflow_v_212.md](/Applications/Q4-Rescue/Medication%20Adherence%20Workflow_v_212.md)
 
 What does not exist yet:
 
@@ -417,6 +418,8 @@ The current API supports:
   Persistence logic for idempotent create requests.
 - [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
   Current case-management API.
+- [Medication Adherence Workflow_v_212.md](/Applications/Q4-Rescue/Medication%20Adherence%20Workflow_v_212.md)
+  Detailed operational workflow source material used to inform the rescue-domain design.
 
 ## What Was Likely Planned Next
 

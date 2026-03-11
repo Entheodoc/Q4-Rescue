@@ -144,6 +144,7 @@ Defines orchestration logic built on top of domain entities.
 - workflow_overview.md
 - intake_workflow.md
 - rescue_workflow_overview.md
+- ../Medication Adherence Workflow_v_212.md
 - contact_workflow.md
 - assessment_workflow.md
 - intervention_workflow.md
@@ -151,6 +152,9 @@ Defines orchestration logic built on top of domain entities.
 - closure_workflow.md
 
 Workflows orchestrate domain behavior but do not define business rules.
+
+Supplemental note:
+`../Medication Adherence Workflow_v_212.md` is retained as detailed operational source material. It uses business-language terms such as "prescriber" and "PCP"; in the active domain model those map to `Provider` and a possible future member-to-provider relationship rather than separate entities.
 
 ---
 
