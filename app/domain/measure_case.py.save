@@ -1,0 +1,37 @@
+from dataclasses import dataclass
+from datetime import datetime
+
+
+@dataclass
+class MeasureCase:
+    id: str
+    member_id: str
+    measure_type: str
+    year: int
+    current_pdc: float | None
+    target_pdc: float
+    status: str
+    created_at: str
+    updated_at: str
+
+    @staticmethod
+    def create(
+        id: str,
+        member_id: str,
+        measure_type: str,
+        year: int,
+        current_pdc: float | None,
+    ):
+        now = datetime.utcnow().isoformat()
+
+        return MeasureCase(
+            id=id,
+            member_id=member_id,
+            measure_type=measure_type,
+            year=year,
+            current_pdc=current_pdc,
+            target_pdc=0.80,
+            status="open",
+            created_at=now,
+            updated_at=now,
+        )

@@ -1,0 +1,8 @@
+.DS_Store
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+.env
+.env.*
+q4_rescue.sqlite3
