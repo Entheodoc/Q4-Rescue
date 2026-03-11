@@ -28,60 +28,49 @@ class CaseId:
 @dataclass
 class Case:
     id: CaseId
-    member_id: str
-    measure_type: str
-    year: int
-    current_pdc: float
-    target_pdc: float
+    member_id: UUID
+    referral_id: UUID
     status: CaseStatus
+    opened_at: datetime
+    closed_at: datetime | None
+    archived_at: datetime | None
+    closed_reason: str | None
+    case_summary: str | None
+    priority: str | None
     created_at: datetime
     updated_at: datetime
 
     @staticmethod
     def create(
         *,
-        member_id: str,
-        measure_type: str,
-        year: int,
-        current_pdc: float,
-        target_pdc: float = 0.80,
+        member_id: UUID,
+        referral_id: UUID,
+        case_summary: str | None = None,
+        priority: str | None = None,
         now: datetime | None = None,
     ) -> "Case":
         now = now or datetime.now(timezone.utc)
 
-        if not member_id or not member_id.strip():
+        if not isinstance(member_id, UUID):
             raise ValidationError("member_id is required")
 
-        if not measure_type or not measure_type.strip():
-            raise ValidationError("measure_type is required")
-
-        if year < 2000 or year > 2100:
-            raise ValidationError("year out of allowed range")
-
-        Case._validate_pdc(current_pdc, field="current_pdc")
-        Case._validate_pdc(target_pdc, field="target_pdc")
+        if not isinstance(referral_id, UUID):
+            raise ValidationError("referral_id is required")
 
         return Case(
             id=CaseId.new(),
-            member_id=member_id.strip(),
-            measure_type=measure_type.strip().upper(),
-            year=year,
-            current_pdc=float(current_pdc),
-            target_pdc=float(target_pdc),
+            member_id=member_id,
+            referral_id=referral_id,
             status=CaseStatus.OPEN,
+            opened_at=now,
+            closed_at=None,
+            archived_at=None,
+            closed_reason=None,
+            case_summary=case_summary.strip() if case_summary and case_summary.strip() else None,
+            priority=priority.strip() if priority and priority.strip() else None,
             created_at=now,
             updated_at=now,
         )
-
-    @staticmethod
-    def _validate_pdc(value: float, *, field: str) -> None:
-        try:
-            normalized = float(value)
-        except Exception as exc:
-            raise ValidationError(f"{field} must be a number") from exc
-
-        if normalized < 0.0 or normalized > 1.0:
-            raise ValidationError(f"{field} must be between 0.0 and 1.0")
 
     def start(self, *, now: datetime | None = None) -> None:
         now = now or datetime.now(timezone.utc)
@@ -101,13 +90,22 @@ class Case:
         self.status = CaseStatus.ON_HOLD
         self.updated_at = now
 
-    def close(self, *, now: datetime | None = None) -> None:
+    def close(
+        self,
+        *,
+        closed_reason: str | None = None,
+        now: datetime | None = None,
+    ) -> None:
         now = now or datetime.now(timezone.utc)
 
         if self.status not in {CaseStatus.IN_PROGRESS, CaseStatus.ON_HOLD}:
             raise InvalidStateTransition(f"Cannot close case from status={self.status}")
 
         self.status = CaseStatus.CLOSED
+        self.closed_at = now
+        self.closed_reason = (
+            closed_reason.strip() if closed_reason and closed_reason.strip() else None
+        )
         self.updated_at = now
 
     def reopen(self, *, now: datetime | None = None) -> None:
@@ -126,4 +124,5 @@ class Case:
             raise InvalidStateTransition("Only CLOSED cases can be archived")
 
         self.status = CaseStatus.ARCHIVED
+        self.archived_at = now
         self.updated_at = now

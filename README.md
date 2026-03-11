@@ -1,17 +1,17 @@
 # Q4-Rescue
 
-Q4-Rescue is the early backend foundation for a medication adherence operations platform.
+Q4-Rescue is the backend foundation for a medication adherence operations platform.
 
-The project is centered on the idea of a "rescue case": a unit of work representing a member who may need intervention to recover or improve medication adherence performance for a given measure and year. The code suggests the long-term goal was to support automated intake, operational workflows, and eventually agent-driven actions such as voice outreach and follow-up automations.
+The project is centered on a Case-based rescue workflow: one referral creates one operational case for one member, and that case may contain multiple measures, medications, barriers, tasks, and communication events. The current backend supports a normalized rescue graph rather than the earlier flat single-measure case model.
 
 ## Purpose
 
 In practical terms, this system is intended to help:
 
-- identify adherence cases that need attention
-- represent those cases in a durable domain model
+- identify members who need adherence rescue
+- represent rescue work in a durable domain model
 - track case lifecycle and status changes
-- prevent duplicate active cases for the same member/measure/year
+- prevent duplicate active cases for the same member
 - support future automation, event handling, and outreach workflows
 
 The current code is a backend service, not yet a full product.
@@ -23,52 +23,53 @@ What exists today:
 - a FastAPI app in [app/main.py](/Applications/Q4-Rescue/app/main.py)
 - a SQLite database in [q4_rescue.sqlite3](/Applications/Q4-Rescue/q4_rescue.sqlite3)
 - a database schema in [app/persistence/schema.sql](/Applications/Q4-Rescue/app/persistence/schema.sql)
-- a domain model for `Case` in [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
+- a Case-centered domain model in [app/domain](/Applications/Q4-Rescue/app/domain)
 - repository classes for persistence in [app/persistence/repositories](/Applications/Q4-Rescue/app/persistence/repositories)
 - API endpoints for case creation, retrieval, listing, status updates, and archiving in [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
 - idempotency support for safe repeated create requests
+- end-to-end persistence for nested `Member`, `Referral`, `Measure`, `Medication`, `MedicationProvider`, and `MedicationPharmacy` data during case creation
 
 What does not exist yet:
 
 - a completed eligibility ingestion flow
-- a work queue or operator task model
+- a task-management API or operator work queue
 - domain events wired into downstream automation
 - projections or read models for operational reporting
 - a frontend or dashboard
 - voice agent integration
-- meaningful test coverage
+- broad business-rule and workflow test coverage
 
 ## Domain-Driven Design Direction
 
-This project already follows a basic domain-driven design shape.
+This project follows a domain-driven design shape.
 
-In the current implementation, the central domain concept is a `Case`, which currently contains:
+The current implementation uses `Case` as the aggregate root and stores a normalized rescue graph:
 
-- `member_id`
-- `measure_type`
-- `year`
-- `current_pdc`
-- `target_pdc`
-- `status`
-- `created_at`
-- `updated_at`
+- `Member`
+- `Referral`
+- `Case`
+- `Measure`
+- `Medication`
+- `Provider`
+- `Pharmacy`
+- `MedicationProvider`
+- `MedicationPharmacy`
 
-Instead of treating the system as only database CRUD, the code models business rules directly in the domain object. For example:
+Instead of treating the system as only database CRUD, the code models business rules directly in domain objects. For example:
 
-- required fields are validated when a case is created
-- PDC values are constrained
+- required member, referral, measure, and medication data is validated at creation time
+- PDC and target thresholds are constrained at the measure level
 - lifecycle transitions are controlled through methods like `start()`, `hold()`, `close()`, and `archive()`
+- duplicate active cases for the same member are prevented at both the repository and database-index levels
 
-That is the clearest sign that the project was being structured around domain behavior rather than just API endpoints.
+That is the clearest sign that the project is being structured around domain behavior rather than only API endpoints.
 
-The current code now uses `Case` as the aggregate root, although the deeper `Measure` / `Medication` decomposition is still future work.
-
-## Planned Domain Vocabulary
-
-The current codebase now uses `Case` as the aggregate root, but the fuller `Measure` / `Medication` model is still being designed.
+## Domain Vocabulary
 
 The current agreed vocabulary is:
 
+- `Member`
+  The persistent canonical person record across time.
 - `Referral`
   One referral received. This starts the process, and the same member may have multiple referrals over time.
 - `Case`
@@ -77,10 +78,22 @@ The current agreed vocabulary is:
   One measure-level problem or opportunity inside a case.
 - `Medication`
   One medication-level record inside a measure.
+- `Barrier`
+  One case-level obstacle preventing rescue resolution.
+- `Provider`
+  A shared provider actor that may appear across many medications and cases.
+- `Pharmacy`
+  A shared pharmacy actor that may appear across many medications and cases.
+- `MedicationProvider`
+  The provider-specific relationship object for one medication.
+- `MedicationPharmacy`
+  The pharmacy-specific relationship object for one medication, including fill and refill state.
 - `Task`
   A task created to do something.
 - `ContactAttempt`
-  One logged communication attempt and its result. This can be for a member, pharmacy, provider, or another contact party.
+  One logged communication attempt and its result. This can be for a member, pharmacy, or provider.
+- `TaskContactAttempt`
+  The linking object between one task and one communication event when a single event advances one or more tasks.
 
 In plain English, the intended flow is:
 
@@ -88,10 +101,12 @@ In plain English, the intended flow is:
 2. The system creates one `Case` from that `Referral`.
 3. The `Case` contains one or more `Measure` records.
 4. Each `Measure` contains one or more `Medication` records.
-5. The system creates `Task` records to act on the case.
-6. Each completed or attempted contact is logged as a `ContactAttempt`.
+5. Each `Medication` may link to Providers and Pharmacies through relationship objects.
+6. The system creates `Task` records to act on the case.
+7. Each completed or attempted contact is logged as a `ContactAttempt`.
+8. `TaskContactAttempt` links those communication events back to the work they advanced.
 
-This planned vocabulary is more representative of the real business workflow than the current simplified single-measure case implementation.
+The active implementation now uses this vocabulary for the core create/read/status case flow, even though some areas such as tasks, barriers, and contact attempts are not fully exposed in API workflows yet.
 
 ## Case Lifecycle
 
@@ -113,7 +128,7 @@ The current transition rules are:
 - `in_progress -> closed`
 - `closed -> archived`
 
-The system also prevents creating another active case for the same member, measure, and year unless the prior case has been archived.
+The system also prevents creating another active case for the same member unless the prior case has reached a terminal state.
 
 ## Current Architecture
 
@@ -197,6 +212,18 @@ In this project:
 
 - [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
 - [app/domain/errors.py](/Applications/Q4-Rescue/app/domain/errors.py)
+
+Current domain files include:
+
+- [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
+- [app/domain/member.py](/Applications/Q4-Rescue/app/domain/member.py)
+- [app/domain/referral.py](/Applications/Q4-Rescue/app/domain/referral.py)
+- [app/domain/measure.py](/Applications/Q4-Rescue/app/domain/measure.py)
+- [app/domain/medication.py](/Applications/Q4-Rescue/app/domain/medication.py)
+- [app/domain/provider.py](/Applications/Q4-Rescue/app/domain/provider.py)
+- [app/domain/pharmacy.py](/Applications/Q4-Rescue/app/domain/pharmacy.py)
+- [app/domain/medication_provider.py](/Applications/Q4-Rescue/app/domain/medication_provider.py)
+- [app/domain/medication_pharmacy.py](/Applications/Q4-Rescue/app/domain/medication_pharmacy.py)
 
 Short version:
 `domain/` contains the real business concepts and rules.
@@ -352,13 +379,13 @@ Short version:
 The current API supports:
 
 - `POST /cases/`
-  Create a new measure case.
+  Create a new rescue case with nested member, referral, measure, medication, provider, pharmacy, and refill detail.
 - `GET /cases`
   List all cases.
 - `GET /cases/{case_id}`
-  Retrieve a single case by ID.
+  Retrieve a single normalized case graph by ID.
 - `PUT /cases/{case_id}/status`
-  Move a case through its lifecycle.
+  Move a case through its lifecycle and optionally set `closed_reason`.
 - `DELETE /cases/{case_id}`
   Archive a case.
 - `GET /health`
@@ -370,14 +397,22 @@ The current API supports:
   FastAPI entrypoint and startup DB initialization.
 - [app/domain/case.py](/Applications/Q4-Rescue/app/domain/case.py)
   Core domain entity and transition logic.
+- [app/domain/member.py](/Applications/Q4-Rescue/app/domain/member.py)
+  Canonical member entity.
+- [app/domain/referral.py](/Applications/Q4-Rescue/app/domain/referral.py)
+  Intake snapshot and referral entity.
+- [app/domain/measure.py](/Applications/Q4-Rescue/app/domain/measure.py)
+  Measure-level rescue entity and PDC carrier.
+- [app/domain/medication.py](/Applications/Q4-Rescue/app/domain/medication.py)
+  Measure-scoped medication entity.
 - [app/domain/errors.py](/Applications/Q4-Rescue/app/domain/errors.py)
   Domain-level exception types.
 - [app/persistence/schema.sql](/Applications/Q4-Rescue/app/persistence/schema.sql)
-  SQLite schema for cases and idempotency keys.
+  SQLite schema for the normalized rescue model and idempotency keys.
 - [app/persistence/db.py](/Applications/Q4-Rescue/app/persistence/db.py)
-  Database connection and schema initialization.
+  Database connection, schema initialization, and legacy MeasureCase migration.
 - [app/persistence/repositories/case_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/case_repo.py)
-  Persistence logic for measure cases.
+  Persistence logic for normalized case graphs.
 - [app/persistence/repositories/idempotency_repo.py](/Applications/Q4-Rescue/app/persistence/repositories/idempotency_repo.py)
   Persistence logic for idempotent create requests.
 - [app/api/routes/case.py](/Applications/Q4-Rescue/app/api/routes/case.py)
@@ -420,7 +455,7 @@ The highest-value next steps are:
    Clarify what inputs create a case, which measures matter, what thresholds matter, and what outcomes count as resolved.
 
 2. Implement eligibility ingestion.
-   Build the path from an incoming referral or source record into application logic that creates or updates a `Case`, its `Measure` records, and its `Medication` records.
+   Build the path from an incoming referral or source record into application logic that creates or updates a `Case` graph, including its `Measure` and `Medication` records.
 
 3. Add domain events.
    When a case is created or transitions state, emit explicit events so automation logic is not buried inside the API layer.
@@ -437,7 +472,6 @@ The highest-value next steps are:
 ## Development Notes
 
 - The project uses SQLite for local persistence.
-- There is currently no git repository in this folder.
 - There are sample rows already stored in the local database.
 - The continuation prompt file exists at [PROMPT_NEXT_CHAT.md](/Applications/Q4-Rescue/PROMPT_NEXT_CHAT.md), but it is currently just a placeholder.
 

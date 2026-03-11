@@ -72,6 +72,7 @@ Member is the person-centered anchor for the rescue domain.
 - `FirstName`
 - `LastName`
 - `BirthDate`
+- `Sex` (nullable)
 
 ### Contact
 

@@ -3,7 +3,7 @@
 ## Metadata
 Document ID: PRD-MASTER-001
 Status: Active
-Version: 2.0.0
+Version: 2.1.0
 Last Updated: 2026-03-11
 Owner: José Palomino
 Layer: Product
@@ -25,8 +25,13 @@ The platform is built around a rescue operations domain model centered on:
 - Barrier
 - Task
 - ContactAttempt
+- Provider
+- Pharmacy
+- MedicationProvider
+- MedicationPharmacy
+- TaskContactAttempt
 
-In the active model, a Referral starts intake work, a Case becomes the operational rescue record for one Member, and downstream work is organized through Measures, Medications, Barriers, Tasks, and ContactAttempts.
+In the active model, a Referral starts intake work, a Case becomes the operational rescue record for one Member, and downstream work is organized through Measures, Medications, Barriers, Tasks, and ContactAttempts, with shared Providers and Pharmacies connected through relationship objects.
 
 The system supports event-driven automation, voice-agent integrations, deterministic state transitions, and scalable dashboard projections.
 
@@ -115,14 +120,17 @@ Defines core entities and aggregate roots.
 Working entity specifications:
 - case.md
 - barrier.md
-- task.md
 - member.md
 - referral.md
 - measure.md
+- medication.md
+- provider.md
+- pharmacy.md
+- medication_provider.md
+- medication_pharmacy.md
+- task.md
 - contact_attempt.md
 - task_contact_attempt.md
-- intervention.md
-- escalation.md
 
 Archived legacy specifications:
 - ../99_Archive/measure_case.md

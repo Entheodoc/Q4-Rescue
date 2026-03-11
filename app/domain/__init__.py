@@ -16,7 +16,6 @@ from app.domain.medication_pharmacy import (
 )
 from app.domain.medication_provider import MedicationProvider, MedicationProviderId
 from app.domain.pharmacy import Pharmacy, PharmacyId
-from app.domain.prescriber import Prescriber, PrescriberId
 from app.domain.provider import Provider, ProviderId
 from app.domain.referral import Referral, ReferralId
 from app.domain.task import Task, TaskId, TaskStatus
@@ -46,8 +45,6 @@ __all__ = [
     "MedicationProviderId",
     "Pharmacy",
     "PharmacyId",
-    "Prescriber",
-    "PrescriberId",
     "Provider",
     "ProviderId",
     "Referral",

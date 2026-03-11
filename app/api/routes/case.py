@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timezone
 from typing import Literal, Optional
 from uuid import UUID
@@ -5,39 +6,29 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
+from app.api.deps import get_db_conn
 from app.api.schemas.case import CaseCreate
-from app.domain.case import Case, CaseStatus
-from app.persistence.db import get_conn
+from app.domain.case import CaseStatus
+from app.domain.errors import ConflictError, ValidationError
 from app.persistence.repositories.case_repo import CaseRepository
 from app.persistence.repositories.idempotency_repo import IdempotencyRepository
 
 router = APIRouter()
 
 
-def get_case_repo() -> CaseRepository:
-    return CaseRepository(get_conn())
+def get_case_repo(conn: sqlite3.Connection = Depends(get_db_conn)) -> CaseRepository:
+    return CaseRepository(conn)
 
 
-def get_idempotency_repo() -> IdempotencyRepository:
-    return IdempotencyRepository(get_conn())
+def get_idempotency_repo(
+    conn: sqlite3.Connection = Depends(get_db_conn),
+) -> IdempotencyRepository:
+    return IdempotencyRepository(conn)
 
 
 class CaseStatusUpdateSchema(BaseModel):
     status: Literal["open", "in_progress", "on_hold", "closed", "archived"]
-
-
-def _serialize_case(case: Case) -> dict[str, str | int | float]:
-    return {
-        "id": str(case.id.value),
-        "status": case.status.value,
-        "member_id": case.member_id,
-        "measure_type": case.measure_type,
-        "year": case.year,
-        "current_pdc": case.current_pdc,
-        "target_pdc": case.target_pdc,
-        "created_at": case.created_at.isoformat(),
-        "updated_at": case.updated_at.isoformat(),
-    }
+    closed_reason: str | None = None
 
 
 @router.post("/cases/", status_code=201)
@@ -52,25 +43,15 @@ def create_case(
         if cached:
             return cached
 
-    if repo.exists_active_case(
-        member_id=payload.member_id,
-        measure_type=payload.measure_type,
-        year=payload.year,
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="Active Case already exists for this member/measure/year",
-        )
+    if repo.exists_active_case(payload.member.health_plan_member_id):
+        raise HTTPException(status_code=409, detail="Active Case already exists for this member")
 
-    case = Case.create(
-        member_id=payload.member_id,
-        measure_type=payload.measure_type,
-        year=payload.year,
-        current_pdc=payload.current_pdc,
-    )
-    repo.create(case)
-
-    response = _serialize_case(case)
+    try:
+        response = repo.create(payload.model_dump(mode="python"))
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     if idempotency_key:
         idem_repo.save(route="POST:/cases", key=idempotency_key, response=response)
@@ -80,7 +61,7 @@ def create_case(
 
 @router.get("/cases")
 def list_cases(repo: CaseRepository = Depends(get_case_repo)):
-    return [_serialize_case(case) for case in repo.list_all()]
+    return repo.list_all()
 
 
 @router.get("/cases/{case_id}")
@@ -94,7 +75,7 @@ def get_case(case_id: str, repo: CaseRepository = Depends(get_case_repo)):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
-    return _serialize_case(case)
+    return repo.get_case_graph(case_uuid)
 
 
 @router.put("/cases/{case_id}/status")
@@ -118,7 +99,7 @@ def update_case_status(
         elif payload.status == CaseStatus.ON_HOLD.value:
             case.hold()
         elif payload.status == CaseStatus.CLOSED.value:
-            case.close()
+            case.close(closed_reason=payload.closed_reason)
         elif payload.status == CaseStatus.ARCHIVED.value:
             case.archive()
         elif payload.status == CaseStatus.OPEN.value:
@@ -133,6 +114,8 @@ def update_case_status(
     return {
         "id": str(case.id.value),
         "status": case.status.value,
+        "closed_at": case.closed_at.isoformat() if case.closed_at else None,
+        "archived_at": case.archived_at.isoformat() if case.archived_at else None,
         "updated_at": case.updated_at.isoformat(),
     }
 

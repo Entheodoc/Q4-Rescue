@@ -1,6 +1,6 @@
 import unittest
 
-from app.domain import Pharmacy, Prescriber, Provider
+from app.domain import Pharmacy, Provider
 
 
 class DomainEntityAvailabilityTests(unittest.TestCase):
@@ -10,8 +10,3 @@ class DomainEntityAvailabilityTests(unittest.TestCase):
 
         self.assertEqual(provider.name, "Dr. Smith")
         self.assertEqual(pharmacy.name, "CVS")
-
-    def test_prescriber_alias_maps_to_provider(self):
-        prescriber = Prescriber.create(name="Dr. Lopez")
-
-        self.assertIsInstance(prescriber, Provider)
