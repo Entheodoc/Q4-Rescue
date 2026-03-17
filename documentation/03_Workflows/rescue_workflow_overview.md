@@ -3,10 +3,10 @@
 ## Metadata
 
 Document ID: WF-RESCUE-001
-Status: Active
-Version: 0.2.0
-Last Updated: 2026-03-11
-Owner: Jose Palomino
+Status: Draft
+Version: 0.2.2
+Last Updated: 2026-03-15
+Owner: José Palomino
 Layer: Workflow
 Parent Document: PRD-MASTER-001
 
@@ -22,6 +22,27 @@ It combines:
 - the current high-level workflow
 
 It is intended to support design conversations and should be updated as the model changes.
+
+Status note:
+This document is `Draft` because it still contains explicitly open design areas and should not be treated as the final architectural contract.
+
+---
+
+## Current Implementation Note
+
+The running backend currently implements:
+
+- case creation
+- case list and detail retrieval
+- lifecycle status updates
+- case archive
+- audit logging, auth, and runtime observability around those flows
+
+The running backend does not yet implement:
+
+- task, barrier, and contact-attempt workflows
+- automation dispatch or governed domain events
+- projection or dashboard layers
 
 ---
 
@@ -140,5 +161,7 @@ For one Medication such as Atorvastatin:
 
 ## Version History
 
+Version 0.2.2 - 2026-03-15 - Added an explicit current-implementation note so the draft overview does not overstate what is already wired in code.
+Version 0.2.1 - 2026-03-15 - Reclassified the document as Draft and normalized metadata formatting to reflect its current design-reference role.
 Version 0.2.0 - 2026-03-11 - Updated to reflect Measure, Medication, Provider, Pharmacy, relationship objects, and refill modeling.
 Version 0.1.0 - 2026-03-11 - Initial visual overview for the current rescue domain and workflow.

@@ -4,9 +4,9 @@
 
 Document ID: DOM-MEASURE-001
 Status: Active
-Version: 0.1.0
-Last Updated: 2026-03-11
-Owner: Jose Palomino
+Version: 0.1.2
+Last Updated: 2026-03-15
+Owner: José Palomino
 Layer: Domain
 Parent Document: PRD-MASTER-001
 
@@ -129,3 +129,11 @@ The following invariants should hold:
 PDC belongs on Measure, not on Medication.
 
 That is one of the most important boundaries in this model, because PDC is fundamentally measure performance rather than medication identity.
+
+---
+
+## Version History
+
+Version 0.1.2 - 2026-03-15 - Normalized metadata formatting for the active documentation set.
+Version 0.1.1 - 2026-03-14 - Added formal version history tracking to align the document with governance requirements.
+Version 0.1.0 - 2026-03-11 - Initial Measure domain specification established.

@@ -4,9 +4,9 @@
 
 Document ID: DOM-PROVIDER-001
 Status: Active
-Version: 0.1.0
-Last Updated: 2026-03-11
-Owner: Jose Palomino
+Version: 0.1.2
+Last Updated: 2026-03-15
+Owner: José Palomino
 Layer: Domain
 Parent Document: PRD-MASTER-001
 
@@ -109,3 +109,11 @@ Whether provider contact details should later move into a reusable contact-point
 PCP is not modeled as its own entity.
 
 If the domain later needs to represent a member's PCP even when that PCP does not prescribe a medication in the case, that should be modeled through a future member-to-provider relationship object such as `MemberProvider`, not through a separate PCP entity and not through `MedicationProvider`.
+
+---
+
+## Version History
+
+Version 0.1.2 - 2026-03-15 - Normalized metadata formatting for the active documentation set.
+Version 0.1.1 - 2026-03-14 - Added formal version history tracking to align the document with governance requirements.
+Version 0.1.0 - 2026-03-11 - Initial Provider domain specification established.

@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 import json
-import sqlite3
 from datetime import datetime, timezone
+from typing import Any, TypeAlias
 from uuid import UUID, uuid4
 
 from app.domain.case import Case, CaseId, CaseStatus
@@ -11,6 +12,7 @@ from app.domain.medication_pharmacy import MedicationPharmacy, RefillDetail
 from app.domain.medication_provider import MedicationProvider
 from app.domain.member import Member
 from app.domain.pharmacy import Pharmacy
+from app.persistence.connection import DatabaseConnection, DatabaseIntegrityError
 from app.domain.provider import Provider
 from app.domain.referral import Referral
 from app.shared.clock import utc_now
@@ -22,9 +24,11 @@ ACTIVE_CASE_STATUSES = (
     CaseStatus.ON_HOLD.value,
 )
 
+RowMapping: TypeAlias = Mapping[str, Any]
+
 
 class CaseRepository:
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: DatabaseConnection):
         self.conn = conn
 
     def exists_active_case(self, health_plan_member_id: str) -> bool:
@@ -106,7 +110,7 @@ class CaseRepository:
                             medication_payload.get("pharmacies", []),
                             now,
                         )
-        except sqlite3.IntegrityError as exc:
+        except DatabaseIntegrityError as exc:
             if "idx_cases_member_active" in str(exc):
                 raise ConflictError("Active Case already exists for this member") from exc
             raise
@@ -118,6 +122,47 @@ class CaseRepository:
             "SELECT id FROM cases ORDER BY created_at DESC"
         ).fetchall()
         return [self.get_case_graph(UUID(row["id"])) for row in rows]
+
+    def list_summaries(self) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT
+                c.id,
+                c.status,
+                c.case_summary,
+                c.priority,
+                c.opened_at,
+                c.closed_at,
+                c.archived_at,
+                c.created_at,
+                c.updated_at,
+                m.id AS member_id,
+                m.health_plan_member_id,
+                m.first_name,
+                m.last_name,
+                m.preferred_language,
+                m.active_status,
+                (
+                    SELECT COUNT(*)
+                    FROM measures AS measure
+                    WHERE measure.case_id = c.id
+                ) AS measure_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tasks AS task
+                    WHERE task.case_id = c.id
+                ) AS task_count,
+                (
+                    SELECT COUNT(*)
+                    FROM barriers AS barrier
+                    WHERE barrier.case_id = c.id
+                ) AS barrier_count
+            FROM cases AS c
+            INNER JOIN members AS m ON m.id = c.member_id
+            ORDER BY c.created_at DESC
+            """
+        ).fetchall()
+        return [self._serialize_case_summary(row) for row in rows]
 
     def get_by_id(self, case_id: UUID) -> Case | None:
         row = self.conn.execute("SELECT * FROM cases WHERE id = ?", (str(case_id),)).fetchone()
@@ -185,6 +230,49 @@ class CaseRepository:
         )
         self.conn.commit()
 
+    def _build_member_entity(self, payload: dict, now: datetime) -> Member:
+        return Member.create(
+            health_plan_member_id=payload["health_plan_member_id"],
+            first_name=payload["first_name"],
+            last_name=payload["last_name"],
+            birth_date=payload.get("birth_date"),
+            sex=payload.get("sex"),
+            phone_number=payload.get("phone_number"),
+            preferred_contact_method=payload.get("preferred_contact_method"),
+            preferred_language=payload.get("preferred_language"),
+            supported_languages=tuple(payload.get("supported_languages", [])),
+            address_line_1=payload.get("address_line_1"),
+            address_line_2=payload.get("address_line_2"),
+            city=payload.get("city"),
+            state=payload.get("state"),
+            zip_code=payload.get("zip"),
+            pbp=payload.get("pbp"),
+            low_income_subsidy_level=payload.get("low_income_subsidy_level"),
+            active_status=payload.get("active_status"),
+            now=now,
+        )
+
+    def _member_payload_from_row(self, row: RowMapping) -> dict:
+        return {
+            "health_plan_member_id": row["health_plan_member_id"],
+            "first_name": row["first_name"],
+            "last_name": row["last_name"],
+            "birth_date": self._parse_date(row["birth_date"]),
+            "sex": row["sex"],
+            "phone_number": row["phone_number"],
+            "preferred_contact_method": row["preferred_contact_method"],
+            "preferred_language": row["preferred_language"],
+            "supported_languages": self._parse_json_array(row["supported_languages"]),
+            "address_line_1": row["address_line_1"],
+            "address_line_2": row["address_line_2"],
+            "city": row["city"],
+            "state": row["state"],
+            "zip": row["zip"],
+            "pbp": row["pbp"],
+            "low_income_subsidy_level": row["low_income_subsidy_level"],
+            "active_status": row["active_status"],
+        }
+
     def _upsert_member(self, payload: dict, now: datetime) -> dict:
         row = self.conn.execute(
             "SELECT * FROM members WHERE health_plan_member_id = ?",
@@ -192,6 +280,8 @@ class CaseRepository:
         ).fetchone()
 
         if row:
+            merged_payload = self._merge_payload(self._member_payload_from_row(row), payload)
+            member = self._build_member_entity(merged_payload, now)
             self.conn.execute(
                 """
                 UPDATE members
@@ -215,22 +305,22 @@ class CaseRepository:
                 WHERE id = ?
                 """,
                 (
-                    payload["first_name"].strip(),
-                    payload["last_name"].strip(),
-                    payload.get("birth_date").isoformat() if payload.get("birth_date") else None,
-                    self._normalize_string(payload.get("sex")),
-                    self._normalize_string(payload.get("phone_number")),
-                    self._normalize_string(payload.get("preferred_contact_method")),
-                    self._normalize_string(payload.get("preferred_language")),
-                    json.dumps(payload.get("supported_languages", [])),
-                    self._normalize_string(payload.get("address_line_1")),
-                    self._normalize_string(payload.get("address_line_2")),
-                    self._normalize_string(payload.get("city")),
-                    self._normalize_string(payload.get("state")),
-                    self._normalize_string(payload.get("zip")),
-                    self._normalize_string(payload.get("pbp")),
-                    self._normalize_string(payload.get("low_income_subsidy_level")),
-                    self._normalize_string(payload.get("active_status")),
+                    member.first_name,
+                    member.last_name,
+                    member.birth_date.isoformat() if member.birth_date else None,
+                    member.sex,
+                    member.phone_number,
+                    member.preferred_contact_method,
+                    member.preferred_language,
+                    json.dumps(list(member.supported_languages)),
+                    member.address_line_1,
+                    member.address_line_2,
+                    member.city,
+                    member.state,
+                    member.zip_code,
+                    member.pbp,
+                    member.low_income_subsidy_level,
+                    member.active_status,
                     now.isoformat(),
                     row["id"],
                 ),
@@ -240,26 +330,7 @@ class CaseRepository:
                 (row["id"],),
             ).fetchone()
 
-        member = Member.create(
-            health_plan_member_id=payload["health_plan_member_id"],
-            first_name=payload["first_name"],
-            last_name=payload["last_name"],
-            birth_date=payload.get("birth_date"),
-            sex=payload.get("sex"),
-            phone_number=payload.get("phone_number"),
-            preferred_contact_method=payload.get("preferred_contact_method"),
-            preferred_language=payload.get("preferred_language"),
-            supported_languages=tuple(payload.get("supported_languages", [])),
-            address_line_1=payload.get("address_line_1"),
-            address_line_2=payload.get("address_line_2"),
-            city=payload.get("city"),
-            state=payload.get("state"),
-            zip_code=payload.get("zip"),
-            pbp=payload.get("pbp"),
-            low_income_subsidy_level=payload.get("low_income_subsidy_level"),
-            active_status=payload.get("active_status"),
-            now=now,
-        )
+        member = self._build_member_entity(payload, now)
         self.conn.execute(
             """
             INSERT INTO members (
@@ -314,10 +385,51 @@ class CaseRepository:
             (str(member.id.value),),
         ).fetchone()
 
+    def _build_provider_entity(self, payload: dict, now: datetime) -> Provider:
+        return Provider.create(
+            name=payload["name"],
+            phone_numbers=tuple(payload.get("phone_numbers", [])),
+            preferred_phone_number=payload.get("preferred_phone_number"),
+            fax_number=payload.get("fax_number"),
+            address_line_1=payload.get("address_line_1"),
+            address_line_2=payload.get("address_line_2"),
+            city=payload.get("city"),
+            state=payload.get("state"),
+            zip_code=payload.get("zip"),
+            now=now,
+        )
+
+    def _build_pharmacy_entity(self, payload: dict, now: datetime) -> Pharmacy:
+        return Pharmacy.create(
+            name=payload["name"],
+            phone_numbers=tuple(payload.get("phone_numbers", [])),
+            preferred_phone_number=payload.get("preferred_phone_number"),
+            fax_number=payload.get("fax_number"),
+            address_line_1=payload.get("address_line_1"),
+            address_line_2=payload.get("address_line_2"),
+            city=payload.get("city"),
+            state=payload.get("state"),
+            zip_code=payload.get("zip"),
+            now=now,
+        )
+
+    def _shared_actor_payload_from_row(self, row: RowMapping) -> dict:
+        return {
+            "name": row["name"],
+            "phone_numbers": self._parse_json_array(row["phone_numbers"]),
+            "preferred_phone_number": row["preferred_phone_number"],
+            "fax_number": row["fax_number"],
+            "address_line_1": row["address_line_1"],
+            "address_line_2": row["address_line_2"],
+            "city": row["city"],
+            "state": row["state"],
+            "zip": row["zip"],
+        }
+
     def _build_referral(
         self,
         *,
-        member_record: sqlite3.Row,
+        member_record: RowMapping,
         member_payload: dict,
         referral_payload: dict,
         now: datetime,
@@ -693,27 +805,22 @@ class CaseRepository:
                     ),
                 )
 
-    def _get_or_create_provider(self, payload: dict, now: datetime) -> sqlite3.Row:
-        normalized_name = payload["name"].strip()
-        preferred_phone = self._normalize_string(payload.get("preferred_phone_number"))
-        fax_number = self._normalize_string(payload.get("fax_number"))
-        row = self.conn.execute(
-            """
-            SELECT *
-            FROM providers
-            WHERE lower(name) = lower(?)
-              AND COALESCE(preferred_phone_number, '') = COALESCE(?, '')
-              AND COALESCE(fax_number, '') = COALESCE(?, '')
-            LIMIT 1
-            """,
-            (normalized_name, preferred_phone, fax_number),
-        ).fetchone()
+    def _get_or_create_provider(self, payload: dict, now: datetime) -> RowMapping:
+        normalized_payload = dict(payload)
+        normalized_payload["name"] = payload["name"].strip()
+        row = self._find_matching_shared_actor_row("providers", normalized_payload)
 
         if row:
+            merged_payload = self._merge_payload(
+                self._shared_actor_payload_from_row(row),
+                normalized_payload,
+            )
+            provider = self._build_provider_entity(merged_payload, now)
             self.conn.execute(
                 """
                 UPDATE providers
-                SET phone_numbers = ?,
+                SET name = ?,
+                    phone_numbers = ?,
                     preferred_phone_number = ?,
                     fax_number = ?,
                     address_line_1 = ?,
@@ -725,32 +832,22 @@ class CaseRepository:
                 WHERE id = ?
                 """,
                 (
-                    json.dumps(payload.get("phone_numbers", [])),
-                    preferred_phone,
-                    fax_number,
-                    self._normalize_string(payload.get("address_line_1")),
-                    self._normalize_string(payload.get("address_line_2")),
-                    self._normalize_string(payload.get("city")),
-                    self._normalize_string(payload.get("state")),
-                    self._normalize_string(payload.get("zip")),
+                    provider.name,
+                    json.dumps(list(provider.phone_numbers)),
+                    provider.preferred_phone_number,
+                    provider.fax_number,
+                    provider.address_line_1,
+                    provider.address_line_2,
+                    provider.city,
+                    provider.state,
+                    provider.zip_code,
                     now.isoformat(),
                     row["id"],
                 ),
             )
             return self.conn.execute("SELECT * FROM providers WHERE id = ?", (row["id"],)).fetchone()
 
-        provider = Provider.create(
-            name=normalized_name,
-            phone_numbers=tuple(payload.get("phone_numbers", [])),
-            preferred_phone_number=preferred_phone,
-            fax_number=fax_number,
-            address_line_1=payload.get("address_line_1"),
-            address_line_2=payload.get("address_line_2"),
-            city=payload.get("city"),
-            state=payload.get("state"),
-            zip_code=payload.get("zip"),
-            now=now,
-        )
+        provider = self._build_provider_entity(normalized_payload, now)
         self.conn.execute(
             """
             INSERT INTO providers (
@@ -786,27 +883,22 @@ class CaseRepository:
         )
         return self.conn.execute("SELECT * FROM providers WHERE id = ?", (str(provider.id.value),)).fetchone()
 
-    def _get_or_create_pharmacy(self, payload: dict, now: datetime) -> sqlite3.Row:
-        normalized_name = payload["name"].strip()
-        preferred_phone = self._normalize_string(payload.get("preferred_phone_number"))
-        fax_number = self._normalize_string(payload.get("fax_number"))
-        row = self.conn.execute(
-            """
-            SELECT *
-            FROM pharmacies
-            WHERE lower(name) = lower(?)
-              AND COALESCE(preferred_phone_number, '') = COALESCE(?, '')
-              AND COALESCE(fax_number, '') = COALESCE(?, '')
-            LIMIT 1
-            """,
-            (normalized_name, preferred_phone, fax_number),
-        ).fetchone()
+    def _get_or_create_pharmacy(self, payload: dict, now: datetime) -> RowMapping:
+        normalized_payload = dict(payload)
+        normalized_payload["name"] = payload["name"].strip()
+        row = self._find_matching_shared_actor_row("pharmacies", normalized_payload)
 
         if row:
+            merged_payload = self._merge_payload(
+                self._shared_actor_payload_from_row(row),
+                normalized_payload,
+            )
+            pharmacy = self._build_pharmacy_entity(merged_payload, now)
             self.conn.execute(
                 """
                 UPDATE pharmacies
-                SET phone_numbers = ?,
+                SET name = ?,
+                    phone_numbers = ?,
                     preferred_phone_number = ?,
                     fax_number = ?,
                     address_line_1 = ?,
@@ -818,32 +910,22 @@ class CaseRepository:
                 WHERE id = ?
                 """,
                 (
-                    json.dumps(payload.get("phone_numbers", [])),
-                    preferred_phone,
-                    fax_number,
-                    self._normalize_string(payload.get("address_line_1")),
-                    self._normalize_string(payload.get("address_line_2")),
-                    self._normalize_string(payload.get("city")),
-                    self._normalize_string(payload.get("state")),
-                    self._normalize_string(payload.get("zip")),
+                    pharmacy.name,
+                    json.dumps(list(pharmacy.phone_numbers)),
+                    pharmacy.preferred_phone_number,
+                    pharmacy.fax_number,
+                    pharmacy.address_line_1,
+                    pharmacy.address_line_2,
+                    pharmacy.city,
+                    pharmacy.state,
+                    pharmacy.zip_code,
                     now.isoformat(),
                     row["id"],
                 ),
             )
             return self.conn.execute("SELECT * FROM pharmacies WHERE id = ?", (row["id"],)).fetchone()
 
-        pharmacy = Pharmacy.create(
-            name=normalized_name,
-            phone_numbers=tuple(payload.get("phone_numbers", [])),
-            preferred_phone_number=preferred_phone,
-            fax_number=fax_number,
-            address_line_1=payload.get("address_line_1"),
-            address_line_2=payload.get("address_line_2"),
-            city=payload.get("city"),
-            state=payload.get("state"),
-            zip_code=payload.get("zip"),
-            now=now,
-        )
+        pharmacy = self._build_pharmacy_entity(normalized_payload, now)
         self.conn.execute(
             """
             INSERT INTO pharmacies (
@@ -879,7 +961,7 @@ class CaseRepository:
         )
         return self.conn.execute("SELECT * FROM pharmacies WHERE id = ?", (str(pharmacy.id.value),)).fetchone()
 
-    def _serialize_member(self, row: sqlite3.Row) -> dict:
+    def _serialize_member(self, row: RowMapping) -> dict:
         return {
             "member_id": row["id"],
             "health_plan_member_id": row["health_plan_member_id"],
@@ -903,7 +985,31 @@ class CaseRepository:
             "updated_at": row["updated_at"],
         }
 
-    def _serialize_referral(self, row: sqlite3.Row) -> dict:
+    def _serialize_case_summary(self, row: RowMapping) -> dict:
+        return {
+            "id": row["id"],
+            "status": row["status"],
+            "case_summary": row["case_summary"],
+            "priority": row["priority"],
+            "opened_at": row["opened_at"],
+            "closed_at": row["closed_at"],
+            "archived_at": row["archived_at"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "measure_count": row["measure_count"],
+            "task_count": row["task_count"],
+            "barrier_count": row["barrier_count"],
+            "member": {
+                "member_id": row["member_id"],
+                "health_plan_member_id": row["health_plan_member_id"],
+                "first_name": row["first_name"],
+                "last_name": row["last_name"],
+                "preferred_language": row["preferred_language"],
+                "active_status": row["active_status"],
+            },
+        }
+
+    def _serialize_referral(self, row: RowMapping) -> dict:
         return {
             "referral_id": row["id"],
             "member_id": row["member_id"],
@@ -1171,7 +1277,7 @@ class CaseRepository:
             for row in rows
         ]
 
-    def _row_to_domain(self, row: sqlite3.Row) -> Case:
+    def _row_to_domain(self, row: RowMapping) -> Case:
         return Case(
             id=CaseId(UUID(row["id"])),
             member_id=UUID(row["member_id"]),
@@ -1187,11 +1293,126 @@ class CaseRepository:
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
 
+    def _find_matching_shared_actor_row(self, table_name: str, payload: dict) -> RowMapping | None:
+        candidates = self.conn.execute(
+            f"""
+            SELECT *
+            FROM {table_name}
+            WHERE lower(name) = lower(?)
+            ORDER BY created_at ASC
+            """,
+            (payload["name"].strip(),),
+        ).fetchall()
+        if not candidates:
+            return None
+
+        address_matches = [
+            row for row in candidates if self._shared_actor_address_matches(row, payload)
+        ]
+        if len(address_matches) == 1:
+            return address_matches[0]
+
+        narrowed_candidates = address_matches or candidates
+        contact_matches = [
+            row for row in narrowed_candidates if self._shared_actor_contact_matches(row, payload)
+        ]
+        if len(contact_matches) == 1:
+            return contact_matches[0]
+
+        if len(candidates) == 1 and not self._shared_actor_address_conflicts(candidates[0], payload):
+            return candidates[0]
+
+        return None
+
+    def _shared_actor_address_matches(self, row: RowMapping, payload: dict) -> bool:
+        provided_address = {
+            field: self._normalize_string(payload.get(field))
+            for field in ("address_line_1", "city", "state", "zip")
+            if field in payload
+        }
+        provided_address = {
+            field: value for field, value in provided_address.items() if value is not None
+        }
+        if not provided_address:
+            return False
+
+        has_strong_signal = (
+            "address_line_1" in provided_address
+            or "zip" in provided_address
+            or {"city", "state"}.issubset(provided_address)
+        )
+        if not has_strong_signal:
+            return False
+
+        return all(self._normalize_string(row[field]) == value for field, value in provided_address.items())
+
+    def _shared_actor_address_conflicts(self, row: RowMapping, payload: dict) -> bool:
+        for field in ("address_line_1", "zip"):
+            if field not in payload:
+                continue
+            incoming_value = self._normalize_string(payload.get(field))
+            existing_value = self._normalize_string(row[field])
+            if incoming_value and existing_value and incoming_value != existing_value:
+                return True
+
+        incoming_city = self._normalize_string(payload.get("city")) if "city" in payload else None
+        incoming_state = self._normalize_string(payload.get("state")) if "state" in payload else None
+        existing_city = self._normalize_string(row["city"])
+        existing_state = self._normalize_string(row["state"])
+        if (
+            incoming_city
+            and incoming_state
+            and existing_city
+            and existing_state
+            and (incoming_city != existing_city or incoming_state != existing_state)
+        ):
+            return True
+
+        return False
+
+    def _shared_actor_contact_matches(self, row: RowMapping, payload: dict) -> bool:
+        payload_contacts = self._shared_actor_contacts_from_payload(payload)
+        if not payload_contacts:
+            return False
+
+        row_contacts = self._shared_actor_contacts_from_row(row)
+        return bool(payload_contacts.intersection(row_contacts))
+
+    def _shared_actor_contacts_from_payload(self, payload: dict) -> set[str]:
+        contacts = {
+            self._normalize_string(value)
+            for value in payload.get("phone_numbers", [])
+        }
+        contacts.add(self._normalize_string(payload.get("preferred_phone_number")))
+        contacts.add(self._normalize_string(payload.get("fax_number")))
+        return {value for value in contacts if value is not None}
+
+    def _shared_actor_contacts_from_row(self, row: RowMapping) -> set[str]:
+        contacts = {
+            self._normalize_string(value)
+            for value in self._parse_json_array(row["phone_numbers"])
+        }
+        contacts.add(self._normalize_string(row["preferred_phone_number"]))
+        contacts.add(self._normalize_string(row["fax_number"]))
+        return {value for value in contacts if value is not None}
+
+    @staticmethod
+    def _merge_payload(existing_payload: dict, incoming_payload: dict) -> dict:
+        merged_payload = dict(existing_payload)
+        merged_payload.update(incoming_payload)
+        return merged_payload
+
     @staticmethod
     def _parse_json_array(value: str | None) -> list:
         if not value:
             return []
         return json.loads(value)
+
+    @staticmethod
+    def _parse_date(value: str | None):
+        if not value:
+            return None
+        return datetime.fromisoformat(value).date()
 
     @staticmethod
     def _normalize_string(value: str | None) -> str | None:

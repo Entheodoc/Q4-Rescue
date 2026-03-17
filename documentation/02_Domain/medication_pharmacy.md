@@ -4,9 +4,9 @@
 
 Document ID: DOM-MEDICATIONPHARMACY-001
 Status: Active
-Version: 0.1.0
-Last Updated: 2026-03-11
-Owner: Jose Palomino
+Version: 0.1.2
+Last Updated: 2026-03-15
+Owner: José Palomino
 Layer: Domain
 Parent Document: PRD-MASTER-001
 
@@ -157,3 +157,11 @@ One open design question is whether MedicationPharmacy should store both:
 - convenience summary fields such as refill count
 
 That detail does not need to be fully locked before the broader domain shape is accepted.
+
+---
+
+## Version History
+
+Version 0.1.2 - 2026-03-15 - Normalized metadata formatting for the active documentation set.
+Version 0.1.1 - 2026-03-14 - Added formal version history tracking to align the document with governance requirements.
+Version 0.1.0 - 2026-03-11 - Initial MedicationPharmacy domain specification established.

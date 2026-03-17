@@ -4,8 +4,8 @@
 
 Document ID: WF-INTAKE-001
 Status: Active
-Version: 2.0.0
-Last Updated: 2026-03-11
+Version: 2.2.0
+Last Updated: 2026-03-15
 Owner: José Palomino
 Layer: Workflow
 Parent Document: PRD-MASTER-001
@@ -18,9 +18,28 @@ The Intake Workflow receives a Referral, validates intake data, determines wheth
 
 This workflow orchestrates domain interactions but does not define business rules, lifecycle rules, or state transition logic.
 
-Eligibility logic is defined in `04_Rules/Eligibility_Rules.md`.
+Eligibility logic is defined in `04_Rules/eligibility_rules.md`.
 
 Case lifecycle behavior is defined in `02_Domain/case.md`.
+
+---
+
+# Implementation Status
+
+This workflow describes the governed target-state intake flow.
+
+Current runtime implementation:
+
+- accepts authorized `POST /cases/` requests for already-qualified rescue work
+- validates payload structure and duplicate-active-case constraints
+- records audit events and runtime telemetry
+
+Not implemented yet:
+
+- automated referral ingestion
+- eligibility evaluation orchestration
+- domain event emission from intake
+- downstream task activation from an automated intake engine
 
 ---
 
@@ -69,7 +88,7 @@ If Member is not active:
 If PCP information is captured, treat it as member-level context rather than medication-level provider data. A future member-to-provider relationship may model that explicitly if it becomes operationally important.
 
 If discrepancies are detected:
-- Emit appropriate escalation events as defined in `Escalation_Rules.md`.
+- Emit appropriate escalation events as defined in `04_Rules/escalation_rules.md`.
 
 ---
 
@@ -77,7 +96,7 @@ If discrepancies are detected:
 
 For each supported adherence Measure (e.g., DM, RASA, Statin):
 
-- Apply eligibility rules defined in `Eligibility_Rules.md`.
+- Apply eligibility rules defined in `04_Rules/eligibility_rules.md`.
 - Determine whether the Member qualifies for that Measure.
 
 If eligible:
@@ -111,7 +130,7 @@ For the newly created Case and its Measures:
 - Flag at-risk indicators for downstream workflows.
 - Emit domain events if required (e.g., `InitialRiskDetected`).
 
-Risk evaluation logic is governed by `Adherence_Rules.md`.
+Risk evaluation logic is governed by `04_Rules/adherence_rules.md`.
 
 ---
 
@@ -149,7 +168,7 @@ Escalation events may be emitted if:
 - Critical data discrepancy detected.
 - Incorrect measure assignment identified.
 
-Escalation logic is governed by `Escalation_Rules.md`.
+Escalation logic is governed by `04_Rules/escalation_rules.md`.
 
 ---
 
@@ -167,15 +186,17 @@ Edge cases are handled through rule evaluation and event emission.
 # Dependencies
 
 - `02_Domain/case.md`
-- `04_Rules/Eligibility_Rules.md`
-- `04_Rules/Adherence_Rules.md`
-- `04_Rules/State_Transition_Rules.md`
-- `04_Rules/Escalation_Rules.md`
-- `06_Automation/Domain_Events.md`
+- `04_Rules/eligibility_rules.md`
+- `04_Rules/adherence_rules.md`
+- `04_Rules/state_transition_rules.md`
+- `04_Rules/escalation_rules.md`
+- `06_Automation/domain_events.md`
 
 ---
 
 # Version History
 
+Version 2.2.0 - 2026-03-15 - Added an explicit implementation-status section to distinguish the governed intake workflow from the currently implemented backend slice.
+Version 2.1.0 – 2026-03-14 – Corrected governed dependency references and aligned the workflow to the current Rules and Automation document set.
 Version 2.0.0 – 2026-03-11 – Workflow revised to align intake around Referral and Case instead of MeasureCase.
 Version 1.0.0 – 2026-03-01 – Governance-compliant workflow aligned to MeasureCase episode-based architecture

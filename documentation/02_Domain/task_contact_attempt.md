@@ -4,9 +4,9 @@
 
 Document ID: DOM-TASKCONTACTATTEMPT-001
 Status: Active
-Version: 0.1.0
-Last Updated: 2026-03-11
-Owner: Jose Palomino
+Version: 0.1.2
+Last Updated: 2026-03-15
+Owner: José Palomino
 Layer: Domain
 Parent Document: PRD-MASTER-001
 
@@ -96,3 +96,11 @@ The following invariants should hold:
 ## Notes for v1
 
 This relationship object is necessary because the workflow explicitly allows one provider or pharmacy interaction to advance several Tasks across several Cases.
+
+---
+
+## Version History
+
+Version 0.1.2 - 2026-03-15 - Normalized metadata formatting for the active documentation set.
+Version 0.1.1 - 2026-03-14 - Added formal version history tracking to align the document with governance requirements.
+Version 0.1.0 - 2026-03-11 - Initial TaskContactAttempt domain specification established.

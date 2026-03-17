@@ -347,6 +347,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_task_contact_attempts_pair
 ON task_contact_attempts (task_id, contact_attempt_id);
 
 -- ------------------------------------------------------------
+-- Audit Events
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  id TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  resource_type TEXT NOT NULL,
+  resource_id TEXT,
+  actor_subject TEXT NOT NULL,
+  actor_permissions TEXT NOT NULL DEFAULT '[]',
+  request_id TEXT NOT NULL,
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_events_resource
+ON audit_events (resource_type, resource_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_events_created_at
+ON audit_events (created_at);
+
+-- ------------------------------------------------------------
 -- Idempotency Keys
 -- ------------------------------------------------------------
 
@@ -354,7 +376,7 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   route TEXT NOT NULL,
   key TEXT NOT NULL,
   response TEXT NOT NULL,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL,
   PRIMARY KEY (route, key)
 );
 

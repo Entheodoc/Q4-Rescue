@@ -1,10 +1,12 @@
-import sqlite3
 import json
+from datetime import datetime, timezone
 from typing import Optional
+
+from app.persistence.connection import DatabaseConnection
 
 
 class IdempotencyRepository:
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: DatabaseConnection):
         self.conn = conn
 
     # ---------------------------------------------------------
@@ -36,9 +38,9 @@ class IdempotencyRepository:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            INSERT INTO idempotency_keys (route, key, response)
-            VALUES (?, ?, ?)
+            INSERT INTO idempotency_keys (route, key, response, created_at)
+            VALUES (?, ?, ?, ?)
             """,
-            (route, key, json.dumps(response)),
+            (route, key, json.dumps(response), datetime.now(timezone.utc).isoformat()),
         )
         self.conn.commit()

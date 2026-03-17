@@ -5,4 +5,4 @@ __pycache__/
 *.pyc
 .env
 .env.*
-q4_rescue.sqlite3
+documentation/*.xlsx

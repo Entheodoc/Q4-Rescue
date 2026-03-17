@@ -4,8 +4,8 @@
 
 Document ID: GOV-GOVERNANCE-001
 Status: Active
-Version: 2.0.0
-Last Updated: 2026-03-11
+Version: 2.3.0
+Last Updated: 2026-03-15
 Owner: José Palomino
 Layer: Governance
 Parent Document: PRD-MASTER-001
@@ -20,6 +20,7 @@ The goal of Governance is to:
 
 - Prevent architectural drift
 - Maintain consistency across documents
+- Distinguish current implementation from target-state architecture
 - Ensure scalability of documentation
 - Support team collaboration
 - Protect domain integrity
@@ -31,27 +32,42 @@ Governance rules must be followed before modifying system structure.
 
 # 1. Repository Structure Standard
 
-The repository must follow this structure:
+Governed Markdown documentation must live under the repository `documentation/` root:
 
-Medication-Adherence-Platform-Spec/
+documentation/
 │
-├── 00_Master_Index.md
-├── 01_Product/
+├── 00_master_index.md
+├── 01_Product/          (when populated)
 ├── 02_Domain/
 ├── 03_Workflows/
 ├── 04_Rules/
 ├── 05_Data_Model/
 ├── 06_Automation/
-├── 07_Dashboard/
+├── 07_Dashboard/        (when populated)
 ├── 08_Governance/
 └── 99_Archive/
 
-No documents should exist outside this structure.
+No governed Markdown documents should exist outside this structure.
+
+Supporting source artifacts may exist elsewhere in the repository, but they are not authoritative specifications unless they are promoted into the governed document set and indexed from `00_master_index.md`.
 
 Structural changes require updates to:
 1. Master Index
 2. Governance
 3. Then individual documents
+
+---
+
+# 1.1 Reference Path Convention
+
+Document references must follow one of these patterns:
+
+1. When a governed document references another governed document, use a path relative to the `documentation/` root.
+   Example: `02_Domain/case.md`
+2. When a governed document references code or other repository artifacts outside `documentation/`, use a repository-root-relative path.
+   Example: `app/application/services/case_service.py`
+
+This convention is required for inline references, dependency sections, and cross-document traceability.
 
 ---
 
@@ -101,11 +117,26 @@ Dashboard reflects domain state.
 Dashboard must not define domain behavior.
 
 ## 08_Governance
-Defines documentation standards and structural discipline.
+Defines documentation standards, structural discipline, and repository-wide engineering conventions that protect architectural integrity, including service and observability rules.
 
 ## 99_Archive
 Stores deprecated or historical specifications.
 Archived documents are immutable.
+
+---
+
+# 2.1 Current-State Versus Target-State Rule
+
+Governed documents may describe target-state architecture, but they must not blur implemented behavior and planned behavior.
+
+If a capability is specified but not yet implemented in code, the document must say so explicitly using clear status language such as:
+
+- current implementation
+- target state
+- planned
+- not yet implemented
+
+Root documents and workflow documents should be especially explicit about this distinction.
 
 ---
 
@@ -122,6 +153,8 @@ Every document must follow this structural order:
 7. Version History section 
 
 The exact naming of content sections may vary depending on the document layer.
+
+This structural standard applies to governed Markdown documents. Supporting source artifacts such as spreadsheets may exist in the repository, but they are not authoritative specifications unless they are promoted into the governed document set. If those artifacts contain operational or member-level data, they must be de-identified before they are stored in the repository.
 
 Examples:
 
@@ -243,7 +276,7 @@ Grammar edits alone do NOT require version bumps.
 
 Version numbers apply at the document level. 
 
-The version number in 00_Master_Index.md represents system-level architecture version.
+The version number in `00_master_index.md` represents system-level architecture version.
 
 ---
 
@@ -263,7 +296,7 @@ Archived domain records defined as terminal by the active domain model are immut
 
 # 8. Domain Event Discipline
 
-Domain Events must be defined only in 06_Automation/Domain_Events.md.
+Domain Events must be defined only in `06_Automation/domain_events.md`.
 Domain documents may declare emitted events but may not define event handling logic.
 Automation may react to events but may not define new domain state transitions outside Rule definitions.
 Event names must be stable and versioned.
@@ -380,6 +413,8 @@ All file names must:
 | RULE-ELIGIBILITY-001 | 04_Rules | eligibility_rules.md |
 | DATA-DICTIONARY-001 | 05_Data_Model | data_dictionary.md |
 | GOV-GOVERNANCE-001 | 08_Governance | governance.md |
+| GOV-SERVICE-RULES-001 | 08_Governance | service_rules.md |
+| GOV-OBSERVABILITY-001 | 08_Governance | observability.md |
 
 ---
 
@@ -754,5 +789,8 @@ The change must be rejected or Governance updated before proceeding.
 
 # Version History
 
+Version 2.3.0 – 2026-03-15 – Added an explicit current-state versus target-state documentation rule and expanded governance scope to include observability conventions.
+Version 2.2.0 – 2026-03-14 – Realigned governance to the `documentation/` root and standardized dependency path conventions for governed documents.
+Version 2.1.0 – 2026-03-14 – Added governance coverage for service-level engineering standards and synchronized documentation versioning with the current active document set.
 Version 2.0.0 – 2026-03-11 – Governance updated to make Case the active aggregate root and retire MeasureCase as the active domain center.
 Version 1.0.0 – 2026-03-01 – Initial governance standard established
